@@ -1,0 +1,13 @@
+import { MAP_W, MAP_H, groundAt, initialBuildings, constructionPlots, frontierHomes, regionSites, plotDoor } from '../src/shared/map.ts';
+import { createNodes } from '../src/server/nature.ts';
+const chars = ['.', '=', '~', ':', '#', ',', '^', '"', 'H'];
+const grid = Array.from({ length: MAP_H }, (_, y) => Array.from({ length: MAP_W }, (_, x) => chars[groundAt(x, y)]));
+const nodes = createNodes(4217);
+for (const n of nodes) grid[n.y][n.x] = n.kind === 'rock' ? 'o' : n.kind === 'bush' ? '*' : n.stage === 'mature' ? (n.kind === 'elder' ? 'E' : n.kind === 'pine' ? 'A' : 'T') : 't';
+initialBuildings.forEach((b, i) => { for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) grid[y][x] = b.kind === 'farm' ? (grid[y][x]) : String.fromCharCode(65 + i + 32).toUpperCase(); grid[b.door.y][b.door.x] = 'D'; });
+constructionPlots.forEach((p, i) => { for (let y = p.y; y < p.y + 4; y++) for (let x = p.x; x < p.x + 4; x++) grid[y][x] = String(i); const d = plotDoor(p); grid[d.y][d.x] = 'd'; });
+frontierHomes.forEach(([hx, hy, w, h], i) => { for (let y = hy; y < hy + h; y++) for (let x = hx; x < hx + w; x++) grid[y][x] = 'F'; grid[hy + h][hx + Math.floor(w / 2)] = 'D'; });
+for (const s of Object.values(regionSites)) grid[s.y][s.x] = '@';
+console.log('    ' + Array.from({ length: MAP_W }, (_, x) => x % 10).join(''));
+grid.forEach((row, y) => console.log(String(y).padStart(3) + ' ' + row.join('')));
+const counts: Record<string, number> = {}; nodes.forEach(n => counts[n.kind + ':' + n.stage] = (counts[n.kind + ':' + n.stage] || 0) + 1); console.log(counts);

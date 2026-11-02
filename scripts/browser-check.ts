@@ -1,0 +1,32 @@
+import { chromium } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { mkdirSync } from 'node:fs';
+const base=process.env.APP_URL||'http://127.0.0.1:3000';
+const browser=await chromium.launch({headless:true,channel:'chrome'});mkdirSync('data/reports',{recursive:true});
+try{
+  const page=await browser.newPage({viewport:{width:1440,height:1100},deviceScaleFactor:1});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base);await page.locator('canvas').waitFor();await page.waitForTimeout(1500);const canvas=await page.locator('canvas').boundingBox();assert.ok(canvas && canvas.width>=1438 && canvas.height>=1098,'Map must fill viewport');assert.equal(await page.getByText('Life goes on here.',{exact:true}).count(),0);await page.screenshot({path:'data/reports/desktop.png',fullPage:true});
+  await page.getByRole('button',{name:'Places',exact:true}).first().click();
+  await page.getByLabel('Explore a place').selectOption('building:home-1');
+  await page.locator('.place-content').getByRole('heading',{name:'Clover cottages'}).waitFor();
+  assert.ok(await page.locator('.place-person').count()>0);
+  await page.getByLabel('Explore a place').selectOption('project:bridge');
+  await page.getByRole('heading',{name:'Construction ledger'}).waitFor();
+  assert.equal(await page.locator('.place-content progress').count(),3);
+  await page.screenshot({path:'data/reports/places-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+  await page.screenshot({path:'data/reports/places-mobile.png',fullPage:true});
+  await page.getByLabel('Explore a place').selectOption('building:workshop');
+  await page.locator('.place-content').getByText(/make tools from wood and stone/).waitFor();
+  await page.getByRole('button',{name:'Close places'}).click();
+  await page.setViewportSize({width:1440,height:1100});
+  await page.locator('.neighbor').filter({hasText:'Moss'}).click();assert.equal(await page.getByText(/Jev selected/).count(),0);await page.getByRole('button',{name:'Follow',exact:true}).click();await page.getByRole('button',{name:'memories',exact:true}).click();await page.getByRole('button',{name:'Close resident'}).click();
+  await page.getByRole('button',{name:'Residents',exact:true}).click();assert.ok(await page.locator('.resident-card').count()>=12);await page.getByRole('textbox',{name:'Find a resident'}).fill('Ada');assert.equal(await page.locator('.resident-card').count(),1);
+  await page.getByRole('button',{name:'Post',exact:true}).click();await page.locator('.newspaper').waitFor();await page.locator('.source-links button').first().click();await page.locator('dialog[open]').waitFor();await page.getByRole('button',{name:'Close event'}).click();await page.getByRole('button',{name:'Mark read'}).click();
+  await page.getByRole('button',{name:'History',exact:true}).click();await page.locator('.history-list .event-row').first().waitFor();await page.getByRole('textbox',{name:'Search town history'}).fill('not-a-real-event-xyz');await page.waitForTimeout(500);assert.equal(await page.locator('.history-list .event-row').count(),0);
+  await page.getByRole('button',{name:'Ops',exact:true}).click();await page.getByRole('heading',{name:'Running',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Map',exact:true}).click();await page.locator('canvas').waitFor();
+  await page.getByRole('button',{name:'Close activity',exact:true}).click();await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));await page.screenshot({path:'data/reports/mobile.png',fullPage:true});
+  await page.reload();await page.locator('canvas').waitFor();assert.deepEqual(errors,[]);console.log('Browser checks passed: six views, Places directory, selection/follow, resident search, article sources, read state, history search, mobile layout, reload, and no page errors.');
+}finally{await browser.close();}

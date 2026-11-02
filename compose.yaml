@@ -1,0 +1,45 @@
+services:
+  village:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_PATH: /app/data/world.sqlite
+      COOKIE_SECURE: 'true'
+    volumes:
+      - world:/app/data
+    expose: ['3000']
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  https:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - village
+  backup:
+    build: .
+    profiles: ['backups']
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/world.sqlite
+    volumes:
+      - world:/app/data
+    entrypoint: ['/bin/sh', '/app/deploy/backup-loop.sh']
+    depends_on:
+      - village
+volumes:
+  world:
+  caddy_data:
+  caddy_config:
